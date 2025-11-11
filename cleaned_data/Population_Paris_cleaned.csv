@@ -1,0 +1,13 @@
+ID_Personne,Nom,Prénom,Adresse,ID_CSP
+1,Martin,Claire,"Paris, 20 rue Arthur Groussier",3
+2,Dupont,Julien,"Paris, 17 rue Belhomme",5
+3,Lefèvre,Amélie,"Paris, 91 rue Broca",4
+4,Moreau,Thomas,"Paris, 20 rue Arthur Groussier",6
+5,Bernard,Sophie,"Paris, 76 rue Blanche",3
+6,Dubois,Karim,"Paris, 18 rue Arthur Groussier",2
+7,Petit,Lucas,"Paris, 8 rue Belhomme",5
+8,Roux,Nathalie,"Paris, 10 rue Belgrand",4
+9,Faure,Antoine,"Paris, 76 rue Blanche",3
+10,Garnier,Léa,"Paris, 79 rue Broca",5
+11,Perrin,Isabelle,"Paris, 92 rue Broca",7
+12,Mercier,Romain,"Paris, 25 rue Broca",1

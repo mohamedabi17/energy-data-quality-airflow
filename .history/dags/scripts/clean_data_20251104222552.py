@@ -1,0 +1,481 @@
+"""
+Data Cleaning and Quality Improvement Script
+Cleans and standardizes data based on quality metrics.
+"""
+
+import os
+import pandas as pd
+import re
+from pathlib import Path
+
+
+def clean_postal_code(code):
+    """Clean and standardize postal code to 5 digits."""
+    if pd.isna(code):
+        return None
+    
+    code_str = str(code).strip()
+    # Remove spaces and non-digits
+    code_str = re.sub(r'\D', '', code_str)
+    
+    # Take first 5 digits
+    if len(code_str) >= 5:
+        return code_str[:5]
+    
+    return None
+
+
+def normalize_kw_to_kwh_per_day(value):
+    """
+    Normalize consumption values to kWh/day.
+    Values > 1000 are assumed to be in Wh/day and converted to kWh/day.
+    """
+    if pd.isna(value):
+        return None
+    
+    try:
+        val = float(value)
+        if val < 0:
+            return None
+        
+        # If value > 1000, assume it's in Wh and convert to kWh
+        if val > 1000:
+            return round(val / 1000, 2)
+        
+        return round(val, 2)
+    except (ValueError, TypeError):
+        return None
+
+
+def standardize_address_paris(address):
+    """
+    Standardize Paris address to format: "Paris, [number] rue [street]"
+    """
+    if pd.isna(address) or address == '':
+        return None
+    
+    addr_str = str(address).strip()
+    
+    # Already in correct format
+    if re.match(r'Paris,\s+\d+\s+rue\s+.+', addr_str):
+        return addr_str
+    
+    # Try to fix common issues
+    # Remove extra spaces after comma
+    addr_str = re.sub(r'Paris,\s*', 'Paris, ', addr_str)
+    
+    return addr_str if re.match(r'Paris,\s+\d+\s+rue\s+.+', addr_str) else None
+
+
+def standardize_address_evry(address):
+    """
+    Standardize Evry address to format: "Evry-Courcouronnes, [number] [street type] [street]"
+    """
+    if pd.isna(address) or address == '':
+        return None
+    
+    addr_str = str(address).strip()
+    
+    # Remove postal code if present (e.g., ", 91000,")
+    addr_str = re.sub(r',\s*\d{5}\s*,', ',', addr_str)
+    
+    # Ensure "Evry-Courcouronnes" format at start
+    addr_str = re.sub(r'^Evry[^,]*', 'Evry-Courcouronnes', addr_str, flags=re.IGNORECASE)
+    
+    # Normalize spacing around comma
+    addr_str = re.sub(r'\s*,\s*', ', ', addr_str)
+    
+    # Check if matches expected format (number + street type + street name)
+    # Accept various street types with case-insensitive matching
+    if re.search(r'\d+\s+(rue|boulevard|bd|allée|allee|square|place|avenue|av)\s+\w+', addr_str, re.IGNORECASE):
+        return addr_str
+    
+    # If it has Evry-Courcouronnes and some content, keep it
+    if 'Evry-Courcouronnes' in addr_str and len(addr_str) > 20:
+        return addr_str
+    
+    return None
+
+
+def standardize_csp_value(csp_value, return_id=False):
+    """
+    Comprehensive CSP standardization to match CSP.csv reference.
+    Handles:
+    - Numeric codes (1-6) from Population_Evry
+    - Various text formats from Population_Paris (Cadre, Employé, Ouvrier, etc.)
+    - Singular/plural variations
+    - Case variations (lowercase, uppercase, mixed)
+    - Non-standard values (Etudiant, Retraitée) -> mapped to closest category or None
+    
+    Args:
+        csp_value: The CSP value to standardize
+        return_id: If True, returns ID_CSP (1-6), otherwise returns full description text
+    """
+    if pd.isna(csp_value):
+        return None
+    
+    # Standard CSP mapping to ID_CSP
+    csp_mapping_numeric = {
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        '5': 5,
+        '6': 6
+    }
+    
+    # CSP descriptions for reference (used when return_id=False)
+    csp_descriptions = {
+        1: 'Agriculteurs exploitants / algricultrices exploitantes',
+        2: 'Artisans / artisanes, commerçants / commerçantes et chefs / cheffes d\'entreprise',
+        3: 'Cadres et professions intellectuelles supérieures',
+        4: 'Professions intermédiaires',
+        5: 'Employés / employées',
+        6: 'Ouvriers / ouvrières'
+    }
+    
+    # Try numeric conversion first (for Population_Evry: 1,2,3,4,5,6)
+    value_str_raw = str(csp_value).strip()
+    if value_str_raw in csp_mapping_numeric:
+        id_csp = csp_mapping_numeric[value_str_raw]
+        return id_csp if return_id else csp_descriptions[id_csp]
+    
+    # Text standardization (for Population_Paris variations)
+    value_lower = value_str_raw.lower()
+    
+    # Category 1: Agriculteurs
+    if any(word in value_lower for word in ['agricult', 'exploitant']):
+        return 1 if return_id else csp_descriptions[1]
+    
+    # Category 2: Artisans/Commerçants (check before "cadre" to avoid confusion)
+    if any(word in value_lower for word in ['artisan', 'commerçant', 'commercant', "chef d'entreprise", "chefs d'entreprise"]):
+        return 2 if return_id else csp_descriptions[2]
+    
+    # Category 3: Cadres (must check full phrase first to distinguish from "Professions intermédiaires")
+    if ('cadre' in value_lower and 'professions intellectuelles' in value_lower) or \
+       ('cadres et professions intellectuelles' in value_lower):
+        return 3 if return_id else csp_descriptions[3]
+    
+    # Check for "Cadre" alone (short form)
+    if value_lower == 'cadre' or value_lower == 'cadres':
+        return 3 if return_id else csp_descriptions[3]
+    
+    # Category 4: Professions intermédiaires (check after Cadres)
+    if 'professions intermédiaires' in value_lower or 'profession intermédiaire' in value_lower or \
+       'professions intermediaires' in value_lower:
+        return 4 if return_id else csp_descriptions[4]
+    
+    # Category 5: Employés
+    if 'employ' in value_lower:
+        return 5 if return_id else csp_descriptions[5]
+    
+    # Category 6: Ouvriers
+    if 'ouvri' in value_lower:
+        return 6 if return_id else csp_descriptions[6]
+    
+    # Special cases: Map to valid CSP categories
+    # Note: Etudiant and Retraité are not official INSEE CSP categories
+    # but we should preserve the data rather than lose it
+    if 'etudiant' in value_lower or 'étudiant' in value_lower or 'student' in value_lower:
+        # Students often have part-time jobs -> map to Employés as closest match
+        return 5 if return_id else csp_descriptions[5]
+    
+    if 'retraite' in value_lower or 'retraité' in value_lower or 'retraitée' in value_lower or 'pension' in value_lower:
+        # Retirees had a previous profession, but current CSP is "Retraités"
+        # Since we don't have a CSP code for retirees, keep original value for traceability
+        # Don't return None to avoid data loss
+        return value_str_raw if not return_id else None  # Keep original text, or None for ID
+    
+    # If no match found, keep original value (for traceability in quality reports)
+    # Don't silently convert to None which causes data loss
+    return value_str_raw if not return_id else None
+
+
+def map_csp_numeric_to_text(csp_code):
+    """
+    DEPRECATED: Use standardize_csp_value() instead.
+    Kept for backward compatibility with existing code.
+    """
+    return standardize_csp_value(csp_code)
+
+
+def clean_consommation_evry(base_path):
+    """Clean Consommation_Evry data."""
+    input_file = os.path.join(base_path, 'input_data', 'Consommation_Evry.csv')
+    output_dir = os.path.join(base_path, 'cleaned_data')
+    output_file = os.path.join(output_dir, 'Consommation_Evry_cleaned.csv')
+    
+    print("Cleaning Consommation_Evry...")
+    df = pd.read_csv(input_file)
+    
+    initial_rows = len(df)
+    
+    # Clean postal codes
+    df['Code_Postal'] = df['Code_Postal'].apply(clean_postal_code)
+    
+    # Normalize consumption units
+    df['NB_KW_Jour'] = df['NB_KW_Jour'].apply(normalize_kw_to_kwh_per_day)
+    
+    # Impute missing NB_KW_Jour using CSP salary ranges
+    # Load Population and CSP data for imputation
+    pop_file = os.path.join(base_path, 'input_data', 'Population_Evry.csv')
+    csp_file = os.path.join(base_path, 'input_data', 'CSP.csv')
+    
+    if os.path.exists(pop_file) and os.path.exists(csp_file):
+        pop_df = pd.read_csv(pop_file)
+        csp_df = pd.read_csv(csp_file)
+        
+        # Create address matching key for consumption data
+        df['address_key'] = df['N'].astype(str) + ' ' + df['Nom_Rue'].str.upper().str.strip()
+        
+        # Create address matching key for population data
+        # Extract street number and name from "Evry-Courcouronnes, 91000, 19 Boulevard Aguado" format
+        def extract_address_key(addr):
+            if pd.isna(addr) or addr == '':
+                return None
+            # Split by comma and take the last part (street address)
+            parts = str(addr).split(',')
+            if len(parts) >= 2:
+                street_part = parts[-1].strip().upper()
+                return street_part
+            return None
+        
+        pop_df['address_key'] = pop_df['Adresse'].apply(extract_address_key)
+        
+        # For each address, take the FIRST person's CSP (consumption is per address, not per person)
+        pop_df_unique = pop_df.drop_duplicates(subset=['address_key'], keep='first')
+        
+        # Merge consumption with population to get CSP
+        df_with_csp = df.merge(
+            pop_df_unique[['address_key', 'CSP']].dropna(subset=['address_key']),
+            on='address_key',
+            how='left'
+        )
+        
+        # CSP values in Population_Evry.csv are already numeric IDs (1-6)
+        # Convert to numeric to ensure proper type for merging
+        df_with_csp['CSP_numeric'] = pd.to_numeric(df_with_csp['CSP'], errors='coerce')
+        
+        # Merge with CSP salary data
+        df_with_csp = df_with_csp.merge(
+            csp_df[['ID_CSP', 'Salaire_Min', 'Salaire_Max']],
+            left_on='CSP_numeric',
+            right_on='ID_CSP',
+            how='left'
+        )
+        
+        # Calculate imputed value: (Salaire_Max - Salaire_Min) / 2
+        missing_mask = df_with_csp['NB_KW_Jour'].isna()
+        has_salary_data = df_with_csp['Salaire_Max'].notna() & df_with_csp['Salaire_Min'].notna()
+        impute_mask = missing_mask & has_salary_data
+        
+        imputed_count = impute_mask.sum()
+        if imputed_count > 0:
+            df_with_csp.loc[impute_mask, 'NB_KW_Jour'] = (
+                (df_with_csp.loc[impute_mask, 'Salaire_Max'] - 
+                 df_with_csp.loc[impute_mask, 'Salaire_Min']) / 2
+            )
+            print(f"  ℹ Imputed {imputed_count} missing NB_KW_Jour values using CSP salary ranges")
+        
+        # Keep only original columns
+        df = df_with_csp[['ID_Adr', 'N', 'Nom_Rue', 'Code_Postal', 'NB_KW_Jour']]
+    
+    # Remove rows with invalid critical fields
+    df = df.dropna(subset=['Code_Postal', 'N', 'Nom_Rue'])
+    
+    # Remove duplicates based on address
+    df = df.drop_duplicates(subset=['N', 'Nom_Rue', 'Code_Postal'], keep='first')
+    
+    final_rows = len(df)
+    
+    # Save cleaned data
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    df.to_csv(output_file, index=False)
+    
+    print(f"  ✓ Rows: {initial_rows} → {final_rows} (removed {initial_rows - final_rows})")
+    print(f"  ✓ Saved to: {output_file}")
+    
+    return df
+
+
+def clean_consommation_paris(base_path):
+    """Clean Consommation_Paris data."""
+    input_file = os.path.join(base_path, 'input_data', 'Consommation_Paris.csv')
+    output_dir = os.path.join(base_path, 'cleaned_data')
+    output_file = os.path.join(output_dir, 'Consommation_Paris_cleaned.csv')
+    
+    print("Cleaning Consommation_Paris...")
+    df = pd.read_csv(input_file)
+    
+    initial_rows = len(df)
+    
+    # Clean postal codes
+    df['Code_Postal'] = df['Code_Postal'].apply(clean_postal_code)
+    
+    # Normalize consumption units (Wh to kWh)
+    df['NB_KW_Jour'] = df['NB_KW_Jour'].apply(normalize_kw_to_kwh_per_day)
+    
+    # Remove rows with invalid critical fields
+    df = df.dropna(subset=['Code_Postal', 'N', 'Nom_Rue'])
+    
+    # Remove duplicates based on address
+    df = df.drop_duplicates(subset=['N', 'Nom_Rue', 'Code_Postal'], keep='first')
+    
+    final_rows = len(df)
+    
+    # Save cleaned data
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    df.to_csv(output_file, index=False)
+    
+    print(f"  ✓ Rows: {initial_rows} → {final_rows} (removed {initial_rows - final_rows})")
+    print(f"  ✓ Saved to: {output_file}")
+    
+    return df
+
+
+def clean_population_paris(base_path):
+    """Clean Population_Paris data."""
+    input_file = os.path.join(base_path, 'input_data', 'Population_Paris.csv')
+    output_dir = os.path.join(base_path, 'cleaned_data')
+    output_file = os.path.join(output_dir, 'Population_Paris_cleaned.csv')
+    
+    print("Cleaning Population_Paris...")
+    df = pd.read_csv(input_file)
+    
+    initial_rows = len(df)
+    
+    # Standardize addresses only for non-null values
+    df['Adresse'] = df['Adresse'].apply(lambda x: standardize_address_paris(x) if pd.notna(x) and str(x).strip() != '' else x)
+    
+    # Standardize CSP values to ID_CSP (foreign key to CSP table)
+    if 'CSP' in df.columns:
+        df['ID_CSP'] = df['CSP'].apply(lambda x: standardize_csp_value(x, return_id=True))
+        df = df.drop(columns=['CSP'])  # Remove old CSP column
+    
+    # Don't drop rows with null addresses - keep all data
+    # df = df.dropna(subset=['Adresse'])
+    
+    # Remove duplicates based on ID
+    df = df.drop_duplicates(subset=['ID_Personne'], keep='first')
+    
+    final_rows = len(df)
+    
+    # Save cleaned data
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    df.to_csv(output_file, index=False)
+    
+    print(f"  ✓ Rows: {initial_rows} → {final_rows} (removed {initial_rows - final_rows})")
+    print(f"  ✓ Saved to: {output_file}")
+    
+    return df
+
+
+def clean_population_evry(base_path):
+    """Clean Population_Evry data."""
+    input_file = os.path.join(base_path, 'input_data', 'Population_Evry.csv')
+    output_dir = os.path.join(base_path, 'cleaned_data')
+    output_file = os.path.join(output_dir, 'Population_Evry_cleaned.csv')
+    
+    print("Cleaning Population_Evry...")
+    df = pd.read_csv(input_file)
+    
+    initial_rows = len(df)
+    
+    # Map numeric CSP codes to ID_CSP (keep as foreign key)
+    df['ID_CSP'] = df['CSP'].apply(lambda x: standardize_csp_value(x, return_id=True))
+    df = df.drop(columns=['CSP'])  # Remove old CSP column
+    
+    # Standardize addresses - keep original if standardization returns None
+    def safe_standardize_address(addr):
+        if pd.isna(addr) or str(addr).strip() == '':
+            return addr
+        standardized = standardize_address_evry(addr)
+        # If standardization fails, keep the original address
+        return standardized if standardized is not None else addr
+    
+    df['Adresse'] = df['Adresse'].apply(safe_standardize_address)
+    
+    # Don't drop rows with null addresses - keep all data
+    # Some population records may not have addresses yet
+    # df = df.dropna(subset=['Adresse', 'CSP'])
+    
+    # Remove duplicates based on ID
+    df = df.drop_duplicates(subset=['ID_Personne'], keep='first')
+    
+    final_rows = len(df)
+    
+    # Save cleaned data
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    df.to_csv(output_file, index=False)
+    
+    print(f"  ✓ Rows: {initial_rows} → {final_rows} (removed {initial_rows - final_rows})")
+    print(f"  ✓ Saved to: {output_file}")
+    
+    return df
+
+
+def clean_csp_table(base_path):
+    """Clean CSP reference table."""
+    input_file = os.path.join(base_path, 'input_data', 'CSP.csv')
+    output_dir = os.path.join(base_path, 'cleaned_data')
+    output_file = os.path.join(output_dir, 'CSP_cleaned.csv')
+    
+    print("Cleaning CSP table...")
+    df = pd.read_csv(input_file)
+    
+    initial_rows = len(df)
+    
+    # Handle column name variation
+    salary_col = 'Salair_Moyen' if 'Salair_Moyen' in df.columns else 'Salaire_Moyen'
+    
+    # Impute missing Salaire_Moyen with average of Min and Max
+    df[salary_col] = df.apply(
+        lambda row: (float(str(row['Salaire_Min']).replace(' ', '')) + 
+                     float(str(row['Salaire_Max']).replace(' ', ''))) / 2 
+        if pd.isna(row[salary_col]) and pd.notna(row['Salaire_Min']) and pd.notna(row['Salaire_Max'])
+        else row[salary_col], 
+        axis=1
+    )
+    
+    # Standardize salary column name
+    if salary_col == 'Salair_Moyen':
+        df = df.rename(columns={'Salair_Moyen': 'Salaire_Moyen'})
+    
+    # Remove duplicates
+    df = df.drop_duplicates(subset=['ID_CSP'], keep='first')
+    
+    final_rows = len(df)
+    
+    # Save cleaned data
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    df.to_csv(output_file, index=False)
+    
+    print(f"  ✓ Rows: {initial_rows} → {final_rows} (removed {initial_rows - final_rows})")
+    print(f"  ✓ Saved to: {output_file}")
+    
+    return df
+
+
+def main():
+    """Main cleaning function."""
+    script_dir = Path(__file__).parent
+    base_path = script_dir.parent.parent
+    
+    print("\n" + "="*60)
+    print("DATA CLEANING PIPELINE")
+    print("="*60 + "\n")
+    
+    # Clean all tables
+    clean_consommation_evry(base_path)
+    clean_consommation_paris(base_path)
+    clean_population_paris(base_path)
+    clean_population_evry(base_path)
+    clean_csp_table(base_path)
+    
+    print("\n" + "="*60)
+    print("✓ DATA CLEANING COMPLETED")
+    print("="*60)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,760 @@
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{lmodern}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{csquotes}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{siunitx}
+\sisetup{output-decimal-marker={.}}
+\usepackage{hyperref}
+\lstdefinestyle{talendstyle}{
+backgroundcolor=\color{gray!5},
+basicstyle=\ttfamily\small,
+frame=single,
+framerule=0.5pt,
+rulecolor=\color{gray!40},
+numbers=none,
+breaklines=true,
+breakatwhitespace=true,
+columns=fullflexible,
+keepspaces=true,
+xleftmargin=1em,
+xrightmargin=1em,
+framexleftmargin=1em,
+framexrightmargin=1em,
+captionpos=b,
+tabsize=2
+}
+\hypersetup{
+colorlinks=true,
+linkcolor=blue,
+urlcolor=blue
+}
+\usepackage{setspace}
+\setstretch{1.2}
+
+\title{Rapport Qualité de Données$$0.3em]
+\large Job Talend \enquote{Split_address_population_paris}}
+\author{Projet DQ -- Talend Open Studio DI 8.0.1}
+\date{20 octobre 2025}
+
+\begin{document}
+
+% --- Page de titre élégante ---
+\begin{titlepage}
+\centering
+% --- Logo de l'université ---
+\includegraphics[width=5cm]{logo.png}\par
+\vspace{1cm}
+% --- Informations d'université ---
+{\scshape\LARGE Université de Versailles Saint-Quentin-en-Yvelines \par}
+\vspace{0.4cm}
+{\scshape\Large Département d'informatique \par}
+\vspace{2cm}
+
+% --- Titre principal ---
+{\Huge\bfseries Évaluation et amélioration\$$0.3em]
+de la qualité des données\$$0.3em]
+de consommation énergétique\par}
+\vspace{2cm}
+
+% --- Auteurs ---
+{\Large\textbf{Réalisé par :}\par}
+\vspace{0.5cm}
+{\large
+    BOUAGADA Youcef\\
+    ABI Mohamed\\
+    Meziane Taous\par}
+\vspace{2cm}
+
+% --- Pied de page de la page de titre ---
+{\large Année universitaire 2025 -- 2026\par}
+\end{titlepage}
+
+% --- Résumé du rapport ---
+\begin{abstract}
+Ce document décrit le module de qualité de données mis en place autour du job Talend \enquote{Split_address_population_paris} (simplement le nom du job) pour l'evaluation et amélioration
+de la qualité de donnée
+de consommation énergétique.
+Il détaille l'architecture, les mappings, le plan de tests (syntaxiques et sémantiques), ainsi que l'analyse des résultats observés sur les jeux d'essais (Paris, Évry, CSP).
+La qualité est évaluée selon les dimensions: complétude, fraîcheur, exactitude, cohérence, adéquation, interprétabilité, portabilité, flexibilité, accessibilité, disponibilité et réputation.
+Des recommandations d'industrialisation et des artefacts (regex, expressions Talend, KPI) sont fournis en annexe.
+\end{abstract}
+
+\section*{Relations Algébriques -- Transformation des Sources vers le Schéma Cible (Version Améliorée)}
+
+\subsection*{1. Les sources de données}
+\begin{itemize}
+\item \textbf{S1 -- Données Paris}
+\begin{itemize}
+\item Population_Paris(\textit{ID_Personne, Nom, Prénom, Adresse, CSP})
+\item Consommation_Paris(\textit{ID_Adr, N, Nom_Rue, Code_Postal, NB_KW_Jour})
+\end{itemize}
+\item \textbf{S2 -- Données Évry}
+\begin{itemize}
+\item Population_Evry(\textit{ID_Personne, Nom, Prénom, Adresse, CSP})
+\item Consommation_Evry(\textit{ID_Adr, N, Nom_Rue, Code_Postal, NB_KW_Jour})
+\end{itemize}
+\item \textbf{S3 -- Catégories socio-professionnelles}
+\begin{itemize}
+\item CSP(\textit{ID_CSP, Desc, Salaire_Moyen, Salaire_Min, Salaire_Max})
+\end{itemize}
+\item \textbf{S4 -- IRIS (Ilots Regroupés pour l'Information Statistique)}
+\begin{itemize}
+\item IRIS(\textit{ID_Rue, ID_Ville, ID_IRIS})
+\end{itemize}
+\end{itemize}
+
+\subsection*{2. Schéma cible attendu}
+\begin{itemize}
+\item Consommation_IRIS_Paris(\textit{ID_IRIS, Conso_moyenne_annuelle})
+\item Consommation_IRIS_Evry(\textit{ID_IRIS, Conso_moyenne_annuelle})
+\item Consommation_CSP(\textit{ID_CSP, Conso_moyenne_annuelle, Salaire_Moyen})
+\end{itemize}
+
+\subsection*{3. Étapes et relations algébriques}
+
+\paragraph{Étape 2 -- Découpage de l'adresse}
+Chaque adresse est décomposée en trois attributs (\textit{N, Nom_Rue, Code_Postal}) pour faciliter la jointure :
+\begin{align*}
+\text{Population_Paris_split} \leftarrow
+\pi_{\substack{\text{ID_Personne, Nom, Prénom, CSP,}\ \text{N, Nom_Rue, Code_Postal}}}(f(\text{Adresse}))
+\end{align*}
+\begin{align*}
+\text{Population_Evry_split} \leftarrow
+\pi_{\substack{\text{ID_Personne, Nom, Prénom, CSP,}\ \text{N, Nom_Rue, Code_Postal}}}(f(\text{Adresse}))
+\end{align*}
+
+\paragraph{Étape 3 -- Jointure Population / Consommation}
+Jointure sur les 3 attributs d'adresse :
+\begin{align*}
+\text{Pop_Conso_Paris} \leftarrow{}
+&\text{Population_Paris_split} \
+&\bowtie_{\substack{
+\text{Pop.N = Conso.N} \
+\wedge \text{ Pop.Nom_Rue = Conso.Nom_Rue} \
+\wedge \text{ Pop.Code_Postal = Conso.Code_Postal}
+}}
+\text{Consommation_Paris_clean}
+\end{align*}
+\begin{align*}
+\text{Pop_Conso_Evry} \leftarrow{}
+&\text{Population_Evry_split} \
+&\bowtie_{\substack{
+\text{Pop.N = Conso.N} \
+\wedge \text{ Pop.Nom_Rue = Conso.Nom_Rue} \
+\wedge \text{ Pop.Code_Postal = Conso.Code_Postal}
+}}
+\text{Consommation_Evry_clean}
+\end{align*}
+Résultat : \textit{(ID_Personne, CSP, N, Nom_Rue, Code_Postal, NB_KW_Jour)}
+
+\paragraph{Étape 4 -- Supposition sur la Jointure entre IRIS et (Population / Consommation)}
+Clé technique pour la jointure avec IRIS :
+
+\textbf{Supposition :} \texttt{IRIS.ID_Rue == Nom_Rue}
+
+\paragraph{Étape 5 -- Jointure avec la table IRIS}
+\begin{align*}
+\text{Conso_IRIS_Paris} &\leftarrow
+\text{Pop_Conso_Paris_Nom_Rue}
+\bowtie_{\text{ID_Rue = IRIS.ID_Rue}}
+\text{IRIS} \
+\text{Conso_IRIS_Evry} &\leftarrow
+\text{Pop_Conso_Evry_Nom_Rue}
+\bowtie_{\text{ID_Rue = IRIS.ID_Rue}}
+\text{IRIS}
+\end{align*}
+Résultat : \textit{(ID_IRIS, ID_Personne, CSP, NB_KW_Jour)}
+
+\paragraph{Étape 6 -- Agrégation par IRIS}
+\begin{align*}
+\text{Consommation_IRIS_Paris} \leftarrow
+\gamma_{\substack{
+\text{ID_IRIS,}\
+\text{SUM(NB_KW_Jour)} \times 365 \rightarrow \text{Conso_moy_annuelle}
+}}
+(\text{Conso_IRIS_Paris})
+\end{align*}
+\begin{align*}
+\text{Consommation_IRIS_Evry} \leftarrow
+\gamma_{\substack{
+\text{ID_IRIS,}\
+\text{SUM(NB_KW_Jour)} \times 365 \rightarrow \text{Conso_moy_annuelle}
+}}
+(\text{Conso_IRIS_Evry})
+\end{align*}
+
+\paragraph{Étape 7 -- Agrégation par CSP}
+Toutes villes confondues :
+\begin{align*}
+\text{Temp} &\leftarrow \text{Pop_Conso_Paris} \cup \text{Pop_Conso_Evry} \
+\text{Temp_CSP} &\leftarrow \text{Temp} \bowtie_{\text{CSP = ID_CSP}} \text{CSP} \
+\text{Consommation_CSP} &\leftarrow
+\gamma_{\substack{
+\text{ID_CSP,}\
+\text{AVG(NB_KW_Jour)} \times 365 \rightarrow \text{Conso_moy_annuelle,}\
+\text{AVG(Salaire_Moyen)}
+}}
+(\text{Temp_CSP})
+\end{align*}
+
+Résultat : \textit{(ID_CSP, Conso_moyenne_annuelle, Salaire_Moyen)}
+
+\subsection*{4. Résumé des principales opérations}
+\renewcommand{\arraystretch}{1.4}
+\begin{center}
+\begin{tabularx}{\textwidth}{|c|c|X|X|}
+\hline
+\textbf{Étape} & \textbf{Symb.} & \textbf{Opération} & \textbf{Objectif} \
+\hline
+1 & $\delta$ & Élimination doublons & Nettoyage données \
+\hline
+2 & $f$ & Découpage adresse & Extraire N, Nom_Rue, Code_Postal \
+\hline
+3 & $\bowtie$ & Jointure Pop./Conso. & Associer individus et consommation \
+\hline
+4 & $f$ & Génération ID_Rue & Clé unique pour IRIS \
+\hline
+5 & $\bowtie$ & Jointure avec IRIS & Associer adresse à zone géo. \
+\hline
+6 & $\gamma$ & Agrégation par IRIS & Conso. moy. annuelle par IRIS \
+\hline
+7 & $\bowtie, \gamma$ & Jointure et agrég. CSP & Conso. moy. annuelle selon CSP \
+\hline
+\end{tabularx}
+\end{center}
+
+\subsection*{5. Résultats finaux}
+\begin{itemize}
+\item Consommation_IRIS_Paris(\textit{ID_IRIS, Conso_moyenne_annuelle})
+\item Consommation_IRIS_Evry(\textit{ID_IRIS, Conso_moyenne_annuelle})
+\item Consommation_CSP(\textit{ID_CSP, Conso_moyenne_annuelle, Salaire_Moyen})
+\end{itemize}
+
+\newpage
+
+\section*{Approches d'Implémentation sous Talend}
+
+Pour maîtriser l'outil Talend et explorer différentes stratégies d'intégration de données, nous avons mis en œuvre \textbf{deux approches distinctes} :
+
+\subsection*{Approche 1 : Job Principal Unifié}
+
+Dans cette première approche, nous avons développé un \textbf{job unique et centralisé} qui intègre l'ensemble du processus ETL (Extract, Transform, Load). Ce job principal contient :
+
+\begin{itemize}
+\item \textbf{Les 4 sources de données} :
+\begin{itemize}
+\item Population_Paris et Consommation_Paris
+\item Population_Evry et Consommation_Evry
+\item Référentiel CSP
+\item Référentiel IRIS
+\end{itemize}
+\item \textbf{Le mapping général} : toutes les transformations, jointures et agrégations sont orchestrées dans un seul flux
+\item \textbf{Les 3 cibles} produites simultanément :
+\begin{itemize}
+\item Consommation_IRIS_Paris.csv
+\item Consommation_IRIS_Evry.csv
+\item Consommation_CSP.csv
+\end{itemize}
+\end{itemize}
+
+\textbf{Avantages :} Vue d'ensemble complète, maintenance centralisée, cohérence des données garantie.
+
+\textbf{Inconvénient :} Complexité accrue du job, difficultés de débogage et de maintenance.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{Capture d'écran 2025-10-20 171635.png}
+\caption{Job principal unifié : toutes les sources et cibles dans un seul flux}
+\label{fig:job-principal}
+\end{figure}
+
+\subsection*{Approche 2 : Jobs Séparés et Optimisés}
+
+Pour améliorer la modularité, la maintenabilité et les performances, nous avons découpé le processus en \textbf{trois jobs indépendants}, chacun dédié à une cible spécifique. Cette approche permet une optimisation ciblée et une meilleure traçabilité.
+
+\subsubsection*{Job 1 : Consommation par IRIS Paris}
+
+Ce job se concentre exclusivement sur le traitement des données parisiennes :
+\begin{itemize}
+\item Sources : Population_Paris, Consommation_Paris, IRIS
+\item Transformations : normalisation adresses, jointures, agrégation par IRIS
+\item Cible : Consommation_IRIS_Paris.csv
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{iris_paris (2).png}
+\caption{Job IRIS Paris : mapping optimisé pour les données parisiennes}
+\label{fig:job-iris-paris}
+\end{figure}
+
+\subsubsection*{Job 2 : Consommation par IRIS Évry}
+
+Structure similaire au job Paris, mais adaptée aux spécificités d'Évry :
+\begin{itemize}
+\item Sources : Population_Evry, Consommation_Evry, IRIS
+\item Transformations : normalisation, jointures, agrégation par IRIS
+\item Cible : Consommation_IRIS_Evry.csv
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{iris_evry.png}
+\caption{Job IRIS Évry : mapping optimisé pour les données d'Évry}
+\label{fig:job-iris-evry}
+\end{figure}
+
+\subsubsection*{Job 3 : Consommation par CSP}
+
+Ce job agrège les données des deux villes par catégorie socio-professionnelle :
+\begin{itemize}
+\item Sources : Population_Paris, Population_Evry, Consommation (Paris + Évry), CSP
+\item Transformations : union des données, jointure avec CSP, agrégation
+\item Cible : Consommation_CSP.csv
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{job_csp_conso.png}
+\caption{Job CSP : agrégation des consommations par catégorie socio-professionnelle}
+\label{fig:job-csp}
+\end{figure}
+
+\subsection*{Comparaison des deux approches}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Critère} & \textbf{Approche 1 (Unifié)} & \textbf{Approche 2 (Modulaire)} \
+\hline
+Maintenabilité & Difficile (job complexe) & Facile (jobs indépendants) \
+\hline
+Performance & Bonne (1 seule exécution) & Modulable (parallélisation possible) \
+\hline
+Débogage & Complexe & Simple (isolation des erreurs) \
+\hline
+Réutilisabilité & Limitée & Élevée (jobs réutilisables) \
+\hline
+Évolutivité & Difficile & Facile (ajout de nouveaux jobs) \
+\hline
+\end{tabularx}
+\end{center}
+
+\textbf{Conclusion :} L'approche modulaire (Approche 2) s'est révélée plus adaptée pour la production, offrant une meilleure traçabilité et facilitant les évolutions futures. L'approche unifiée reste pertinente pour des besoins de prototypage rapide ou de cohérence stricte des données.
+
+\section{Contexte et périmètre}
+
+\subsection{Objectif métier}
+Rattacher des personnes et leurs consommations journalières (\texttt{NB_KW_Jour}) à des IRIS géographiques (Paris, Évry), puis produire:
+\begin{itemize}
+\item une consommation agrégée par IRIS (\textit{conso_iris_*.csv});
+\item des indicateurs par CSP (salaire moyen, consommation annuelle moyenne: \textit{conso_csp.csv}).
+\end{itemize}
+
+\subsection{Sources et sorties (extraits)}
+\begin{itemize}
+\item \textbf{Population + Adresse}: chaînes de la forme \texttt{N|Nom_Rue|Code_Postal} et attributs (\texttt{ID_Personne, Nom, Prénom, CSP}).
+\item \textbf{Consommation}: \texttt{NB_KW_Jour} (valeurs comme 15.2, 20.1, \dots).
+\item \textbf{IRIS}: codes du type \texttt{IRIS_75001_001}, \texttt{IRIS_91000_001}, \dots
+\item \textbf{Sorties observées}:
+\begin{itemize}
+\item \texttt{conso_iris_paris.csv}: toutes les lignes à \num{34967.0} (anomalie);
+\item \texttt{conso_iris_evry.csv}: valeurs variables (ex.: \num{5438.5}, \num{6606.5}, \dots);
+\item \texttt{conso_csp.csv}: ex. \texttt{1,45000,6013.375}.
+\end{itemize}
+\end{itemize}
+
+\section{Architecture du job (vue logique Talend)}
+\begin{enumerate}
+\item \textbf{Normalisation Adresse (Paris & Évry)}: \texttt{tExtractRegexFields} pour splitter \texttt{N|Rue|CP}; \texttt{tMap} pour standardiser (trim, uppercase, suppression des accents); création d'un \texttt{ID_Adr} stable.
+\item \textbf{Jointure Population $\leftrightarrow$ Consommation}: \texttt{tMap} (clés: \texttt{ID_Personne} et, si pertinent, \texttt{ID_Adr}); filtrage des valeurs aberrantes de \texttt{NB_KW_Jour}.
+\item \textbf{Rattachement aux IRIS}: \texttt{tMap} avec référentiel IRIS; \textbf{unicité} adresse $\rightarrow$ IRIS; rejets en cas d'ambiguïtés/absences.
+\item \textbf{Agrégations}: \texttt{tAggregateRow} (par IRIS et par CSP).
+\item \textbf{Sorties/Contrôles}: \texttt{tFileOutputDelimited}, \texttt{tLogRow}, compteurs \texttt{tFlowMeter}, rejets.
+\end{enumerate}
+
+\section{Spécifications de mapping}
+
+\subsection{Parsing et standardisation d'adresse}
+\paragraph{Extraction (tExtractRegexFields)} Regex:
+\begin{lstlisting}
+^(?<N>\d+)|(?<Nom_Rue>[^|]+)|(?<Code_Postal>\d{5})$
+\end{lstlisting}
+
+Cette section présente les principales étapes de l'implémentation sous Talend, illustrées par des captures d'écran et accompagnées d'explications pédagogiques.
+
+\subsection*{1. Vue d'ensemble du job CSP}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{job_csp_conso.png}
+\caption{Schéma général du job Talend pour l'agrégation CSP}
+\label{fig:talend-csp-overview}
+\end{figure}
+\FloatBarrier
+
+Ce job orchestre la collecte, la normalisation et l'agrégation des données de consommation par catégorie socio-professionnelle (CSP).
+Les composants tMap, tAggregateRow et tFileOutputDelimited sont utilisés pour transformer et exporter les résultats.
+
+\FloatBarrier
+\subsection*{2. Job IRIS Paris : flux de traitement}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{job_csp_conso.png}
+\caption{Flux de traitement pour la consommation par IRIS à Paris}
+\label{fig:talend-iris-paris}
+\end{figure}
+\FloatBarrier
+
+Ce flux relie la consommation à chaque IRIS via une jointure sur les adresses, puis agrège les consommations annuelles par IRIS.
+
+\FloatBarrier
+\subsection*{3. Job IRIS Evry : flux de traitement}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{iris_evry.png}
+\caption{Flux de traitement pour la consommation par IRIS à Évry}
+\label{fig:talend-iris-evry}
+\end{figure}
+\FloatBarrier
+
+La logique est similaire à Paris, adaptée au référentiel IRIS d'Évry.
+
+\FloatBarrier
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.7\textwidth}
+\centering
+\includegraphics[width=\textwidth]{iris_paris (2).png}
+\caption{Job IRIS Paris}
+\end{subfigure}
+\vspace{0.5cm}
+\begin{subfigure}{0.7\textwidth}
+\centering
+\includegraphics[width=\textwidth]{exec_iris_paris.png}
+\caption{Exécution du job IRIS Paris : résultats agrégés}
+\end{subfigure}
+\caption{Résultats du job IRIS Paris}
+\label{fig:iris-paris}
+\end{figure}
+\FloatBarrier
+
+On observe ici la sortie du job, avec la colonne \texttt{NbKW_SUM_YEAR} pour chaque IRIS.
+
+\FloatBarrier
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.8\textwidth}
+\centering
+\includegraphics[width=\textwidth]{job_csp_conso.png}
+\caption{Job Conso CSP : structure du job}
+\end{subfigure}
+\vspace{0.5cm}
+\begin{subfigure}{0.8\textwidth}
+\centering
+\includegraphics[width=\textwidth]{job_conso_csp_exec.png}
+\caption{Exécution du job Conso CSP : résultats agrégés}
+\end{subfigure}
+\caption{Résultats du job Conso CSP}
+\label{fig:job-csp}
+\end{figure}
+\FloatBarrier
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{
+\centering
+\includegraphics[width=\textwidth]{Capture d'écran 2025-10-20 171635.png}
+}}
+\caption{Vue d'ensemble du job Talend Split_address_population_paris}
+\label{fig:talend-overview}
+\end{figure}
+\FloatBarrier
+
+\paragraph{Normalisation suggesté (tMap, fonctions Talend)}
+\begin{lstlisting}[style=talendstyle]
+N_norm = Integer.parseInt(StringHandling.TRIM(row.N))
+Rue_norm = StringHandling.UPCASE(
+StringHandling.EREPLACE(StringHandling.TRIM(row.Nom_Rue),"[\p{M}]","")
+)
+CP_norm = StringHandling.TRIM(row.Code_Postal)
+
+ID_Adr = StringHandling.MD5(
+N_norm + "|" + Rue_norm + "|" + CP_norm
+)
+\end{lstlisting}
+
+\section{Implémentation des Métriques de Mesure de Qualité des Données}
+
+Cette section détaille l'implémentation des 38 métriques de qualité calculées par le pipeline ETL, en utilisant des composants Talend et Python (via tPythonRow pour intégration). Les métriques couvrent la conformité, la complétude et la distribution des tuples, appliquées avant et après nettoyage. Le fichier \texttt{computemetrics.py} orchestre le calcul, produisant \texttt{metadataqd.csv} (séparateur point-virgule, 40 colonnes).​
+
+\subsection{Étapes d'Implémentation}
+
+Les métriques sont calculées en deux phases : sur données brutes (\texttt{inputdata/}) et nettoyées (\texttt{cleaneddata/}). L'implémentation suit ces étapes :
+
+\textbf{Chargement et Validation Syntaxique} : Utiliser tFileInputDelimited pour charger les CSV, puis tSchemaComplianceCheck pour vérifier types (numérique pour NB_KW_Jour, chaîne 5 chiffres pour Code_Postal). Regex pour adresses : \texttt{^(Paris|Evry-Courcouronnes), \d+ (rue|boulevard|allee|avenue|square|place) [A-Z ]+$}. ​
+
+\textbf{Calcul Conformité} : tMap avec fonctions personnalisées :
+
+Codes postaux : pctinvalidCP = COUNT(Code_Postal !~ '[0-9]{5}') / totalrows * 100.
+
+CSP : pctinvalidCSP = COUNT(CSP NOT IN CSP_reference) / totalrows * 100 (référence : liste INSEE 1-7).
+
+Salaires : pctinvalidsalary = COUNT(Salaire_Moyen < 0 OR > 1000000) / totalrows * 100.
+
+Consommation : pctinvalidConso = COUNT(NB_KW_Jour < 0 OR non-numérique) / totalrows * 100.​
+
+\textbf{Calcul Complétude} : tAggregateRow pour :
+
+Complétude table : (COUNT(non-null) / (totalrows * nbcolonnes)) * 100.
+
+Tuples : tMap classe les lignes (below50 : <50%, 50to100 : 50-99%, 100 : 100%). Exclure <50% via tFilterRow.​
+
+\textbf{Agrégation et Stockage} : tAggregateRow groupe par table (e.g., ConsommationEvry : 10 métriques), sortie vers tFileOutputDelimited (metadataqd.csv).​
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{metrics_calculation_flow.png} % Placeholder pour capture d'écran du flux Talend/Python
+\caption{Flux Talend pour calcul des métriques : tFileInputDelimited → tMap (validations) → tAggregateRow → tFileOutputDelimited}
+\label{fig:metrics-flow}
+\end{figure}
+
+Exemple de sortie pour ConsommationEvry (brut) : totalrows=12, invalidrate=58.33%, pctinvalidCP=25%, completeness=94.79%. Après nettoyage : invalidrate=0%.​
+
+\section{Amélioration de la Qualité des Données}
+
+L'amélioration suit un pipeline modulaire en Python (cleandata.py, intégré via tSystem ou tPythonRow dans Talend), appliquant normalisation, imputation et déduplication. 5 règles principales sont implémentées pour passer de 55 lignes brutes (58% invalides) à 56 nettoyées (0% invalides).​
+
+\subsection{Étapes d'Implémentation}
+
+\textbf{Normalisation Unités (Consommation)} : tMap divise NB_KW_Jour >1000 par 1000 (Wh → kWh). Ex. : Paris 1548.49 Wh → 1.55 kWh. Regex seuil : si >1000, normaliser. Imputation manquants : moyenne colonne (86.60 kWh/jour Evry).​
+
+\textbf{Standardisation Adresses} : tExtractRegexFields pour splitter Adresse en N|Nom_Rue|Code_Postal. Puis tMap : TRIM/UPPER/EREPLACE accents. Pour Evry : supprimer codes postaux embarqués (e.g., "Evry, 91000, 19 Bd Aguado" → "Evry-Courcouronnes, 19 Boulevard Aguado"). Validation : regex pour format ville, N, type rue. ​
+
+\textbf{Mapping CSP} : tMap fuzzy match (case-insensitive) texte → IDCSP (e.g., "Cadre" → 3, "Retrait" → 7 ajouté). Ajout catégorie 7 (Retraits) avec SalaireMoyen = (Min+Max)/2 des autres.​
+
+\textbf{Déduplication et Imputation} : tUniqRow sur clés (IDPersonne, N+NomRue+CP). Imputer salaires CSP manquants : (Min+Max)/2. Exclure lignes <50% complètes via tFilterRow.​
+
+\textbf{Sortie} : tFileOutputDelimited vers cleaneddata/ (5 CSV). Logs : "Imputed 5 missing NBKWJour", "Added category 7 Retraits".​
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{cleaning_pipeline.png} % Placeholder pour capture
+\caption{Pipeline nettoyage : tFileInput → tMap (normalisation) → tUniqRow → tFilterRow → tFileOutput}
+\label{fig:cleaning-flow}
+\end{figure}
+
+Amélioration observée : ConsommationEvry invalides 58.33% → 0% ; PopulationEvry adresses 100% invalides → 0%.​
+
+\section{Mapping des Données Sources Après Nettoyage vers Schémas Cibles}
+
+Après nettoyage, les données (cleaneddata/) sont mappées vers 3 schémas cibles (targetschemas/) via aggregatedata.py (Talend : tMap + tAggregateRow). Jointures LEFT sur noms rues (uppercase), agrégation AVG(NB_KW_Jour * 365). Couverture : 100% complétude cibles, mais 33% matching population-consommation (INNER JOIN rues).​
+
+\subsection{Étapes d'Implémentation}
+
+\textbf{Chargement Nettoyé} : tFileInputDelimited pour 5 CSV nettoyés + IRIS.csv, CSP.csv.​
+
+\textbf{Jointure IRIS (Paris/Evry)} : tMap extrait rues (regex "\d+ (rue|bd|allee) [A-Z]+"), match fuzzy IDRue (contient/upper). Filtre IDVille="Paris" ou "Evry-Courcouronnes". LEFT JOIN : cons.NomRue.upper() IN iris.IDRue.upper(). ​
+
+\textbf{Agrégation IRIS} : tAggregateRow : GROUP BY IDIRIS, AVG(NB_KW_Jour * 365) → Conso_moyenne_annuelle. Sortie : ConsommationIRISParis.csv (5 lignes, e.g., Clignancourt=4927.5 kWh/an).​
+
+\textbf{Union et Jointure CSP} : Union PopulationParis+Evry (24 personnes), jointure INNER Population-Consommation sur rue extraite (33% match). Puis LEFT JOIN CSP sur IDCSP, AVG(Conso) et AVG(SalaireMoyen).​
+
+\textbf{Agrégation CSP} : tAggregateRow : GROUP BY IDCSP, AVG(Conso*365), SalaireMoyen. Sortie : ConsommationCSP.csv (7 lignes, e.g., IDCSP=3=4945.75 kWh, 39860€).​
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{mapping_aggregation.png} % Placeholder
+\caption{Flux mapping : cleaneddata → tMap (jointures) → tAggregateRow → targetschemas}
+\label{fig:mapping-flow}
+\end{figure}
+
+Problèmes : Doublon Evry (AGUADO/Aguado) → standardiser upper() avant GROUP BY ; Matching CSP faible (échantillons 1-4).​
+
+\section{Comparaison des Métriques entre Sources et Cibles}
+
+Les métriques évoluent de brut (88% complétude, 58% invalides Evry) à nettoyé (98%) et cible (100%). 40 métriques comparées via metadataqd.csv (brut) et metadataqdcleaned.csv.​
+
+\subsection{Analyse Comparative}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Métrique} & \textbf{Sources Brutes} & \textbf{Sources Nettoyées} & \textbf{Schémas Cibles} \
+\midrule
+Complétude Globale & 88% & 98% & 100% \
+Invalides (Evry) & 58.33% & 0% & 0% (1 doublon) \
+Invalides (Paris) & 100% (unités) & 0% & 0% \
+Matching Population-Conso & N/A & N/A & 33% (CSP) \
+Doublons & Quelques & 0 & 1 (Evry IRIS) \
+\midbottomrule
+ConsommationIRISParis & N/A & 13+12 lignes & 5 lignes (100% valid) \
+ConsommationIRISEvry & N/A & 12 lignes & 6 lignes (83%, doublon) \
+ConsommationCSP & N/A & 24 personnes & 7 catégories (95%, échantillons petits) \
+\bottomrule
+\end{tabular}
+\caption{Comparaison métriques : Sources vs Cibles (amélioration +93%)}
+\label{tab:metrics-comparison}
+\end{table}
+
+Évolution : Invalides postaux 25% → 0% ; CSP invalides 100% Evry → 0% (mapping). Cibles : 18 lignes agrégées, 100% complètes, mais issues (doublon Evry, faible couverture CSP). Recommandations : Fuzzy matching (Levenshtein 80%), LEFT JOIN imputation, métadonnées SampleSize.​
+
+\section{Analyse des resultats}
+\subsection{Évry}
+\begin{itemize}
+\item \texttt{conso_iris_evry.csv}: valeurs variables (\num{4927.5}, \num{6497.0}, \dots) $\Rightarrow$ distribution hétérogène, cohérente.
+\end{itemize}
+
+\subsection{Paris}
+\begin{itemize}
+\item \texttt{conso_iris_paris.csv}: toutes les lignes à \num{34967.0}.
+\item \textbf{Diagnostic}: jointure trop large (probable jointure CP $\Rightarrow$ cartésien Adresse $\times$ IRIS du CP).
+\item \textbf{Preuve}: les mêmes personnes apparaissent sous une multiplicité d'IRIS 75xxx dans les logs.
+\end{itemize}
+
+\subsection{CSP}
+\begin{itemize}
+\item \texttt{conso_csp.csv}: valeurs présentes (ex.: \texttt{1,45000,6013.375}). Recalcul à confirmer une fois le rattachement IRIS Paris corrigé si réutilisé en amont.
+\end{itemize}
+
+\section{Évaluation par dimensions}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{3.2cm} p{5.7cm} p{5.7cm}}
+\toprule
+\textbf{Dimension} & \textbf{Appréciation} & \textbf{Remarques / Risques} \
+\midrule
+Complétude & Moyenne à bonne sur l'échantillon & Suivre nullité sur N, Rue, CP, conso \
+Fraîcheur & Non mesurée & Ajouter date de mesure & SLA (D+1) \
+Exactitude & \textcolor{red}{Faible} côté Paris & Jointure IRIS à vérifié \
+Cohérence & \textcolor{red}{Faible} côté Paris & Cardinalité Adresse$\rightarrow$IRIS cassée \
+Adéquation & Partielle & Besoin métier compromis pour Paris \
+Interprétabilité & Bonne & Documenter unités, valeurs nulles \
+Portabilité & Bonne & CSV, encodage UTF-8, séparateur cohérent \
+Flexibilité & Moyenne & Prévoir param. villes/règles \
+Accessibilité & Bonne (fichiers) & Prévoir export SQL/Parquet \
+Disponibilité & À cadrer & Dépend des sources \
+Réputation & Liée aux réf. officiels & Versionner référentiels (IRIS/CSP) \
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Évaluation et Amélioration de la Qualité des Données}
+\subsection{Conformité}
+\begin{itemize}
+\item \textbf{Objectif :}
+\textbf{Conformité au domaine}
+On vérifie si la valeur respecte le type attendu (format).
+\begin{table}[!h]
+\centering
+\begin{tabular}{|l|p{10cm}|}
+
+\hline
+\textbf{Source/cible} & \textbf{Action à faire} \
+\hline
+\makecell{Consommation_Paris sur\ NB_KW_Jour (consommation/jour)}
+&
+\begin{itemize}
+\item Conserver un format numérique et positif.
+\item Ajouter une contrainte : \texttt{CHECK ($NB_KW_Jour \geq 0$)}.
+\item \textbf{Métrique associée :} pourcentage de valeurs invalides (non numériques ou < 0).
+\end{itemize}
+\
+\hline
+Population sur Adresse
+&
+\begin{itemize}
+\item Doit respecter un format structuré : \textbf{Ville, Numéro, NomRue}.
+
+text
+\item \textbf{Métrique associée :} pourcentage d'adresses ne respectant pas ce format.
+\end{itemize}
+\
+\hline
+Code_Postal
+&
+\begin{itemize}
+\item \textbf{Métrique} mesurer la proportion de codes postaux non conformes au format attendu.
+\item Doit contenir exactement 5 chiffres.
+\item Appliquer une expression régulière : \texttt{$[0-9]{5}$}.
+\end{itemize}
+\
+\hline
+Population_Paris & Evry sur CSP
+&
+\begin{itemize}
+\item La valeur de CSP doit appartenir à une liste prédéfinie (ex. : \texttt{'Agriculteurs', 'Ouvriers', 'Cadres', 'Employés', 'Artisans', ...}).
+\item \textbf{Métrique associée :} Pourcentage de valeurs ne faisant pas partie de la liste.
+\end{itemize}
+\
+\hline
+\hline
+CSP sur Salaire_Moyen
+&
+\begin{itemize}
+\item Type numérique uniquement.
+\item Définir une plage réaliste : 0 $\leq$ Salaire_Moyen $\leq$ 1,000,000.
+\item \textbf{Métrique associée :} pourcentage des valeurs hors plage (valeurs < 0 ou > 1,000,000).
+\end{itemize}
+\
+\hline
+\end{tabular}
+\caption{Règles de conformité des attributs}
+\end{table}
+
+\item \textbf{Conformité au réel} :
+\begin{enumerate}
+\item Vérifier que chaque ID_IRIS existe dans la table IRIS (S4).
+\item Vérifier correspondance ID_CSP entre Population et table CSP.
+\end{enumerate}
+\end{itemize}
+\subsection{Compl'etude des donn'ees}
+\begin{itemize}
+\item \textbf{Complétude d'un attribut (colonne)} % de valeurs non nulles d'un attribut.
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{2.5cm}|p{3cm}|p{5.5cm}|p{4cm}|}
+\hline
+\textbf{Attribut concerné} & \textbf{Que signifie une donnée manquante ?} & \textbf{Comment mesurer ?} & \textbf{Que faire si valeur manquante ?} \
+
+\hline
+
+Salaire_Moyen (table CSP) &
+Pas de salaire disponible pour une catégorie &
+COUNT(Salaire_Moyen) $/$ COUNT(*) &
+\begin{itemize}
+\item Compléter via moyenne (Salaire_Min + Salaire_Max) $/$ 2
+\end{itemize} \
+
+\hline
+\end{tabular}
+\caption{Gestion des données manquantes}
+\end{table}
+\item \textbf{Complétude d'un tuple :} Nombre d'attributs renseignés / total dans une ligne.
+\begin{enumerate}
+\item Si densité < 50 % → tFilterRow pour exclure la ligne.
+\item Si $50 % \leq densité < 100$ % → tMap ou tDenormalize pour imputation : moyenne ou correspondance avec un référentiel.
+\item Si =100 % → ligne valide.
+\end{enumerate}
+\item \textbf{Complétude d'une relation} $$
+\text{Complétude_table} = \frac{\text{Nb_valeurs_non_nulles}}{\text{Nb_lignes} \times \text{Nb_colonnes}}
+
+\end{itemize} \subsection{Détection et élimination de doublons} On va effectuer cette étape sur les tables de sortie issues des jointures et sur les tables finales du mapping. \begin{itemize} \item \textbf{Identifier doublons} tUniqRow ou tAggregateRow pour repérer les doublons selon les colonnes clés. \item \textbf{Fusionner / corriger} tMap pour : calculer la moyenne sur les valeurs numériques, remplacer les NULL par des valeurs par défaut. \item \textbf{Supprimer doublons résiduels} tUniqRow (avec Rejects si besoin) ou tFilterRow pour ne garder qu'une seule occurrence. \item \textbf{Créer clés uniques} tMap pour concaténer les colonnes clés et générer un identifiant unique, éventuellement avec StringHandling.MD5() pour créer un hash. \end{itemize} \subsection{Granularité} sur la consommation (NB\_KW\_Jour) \begin{itemize} \item La vérification est appliquée au niveau de l'attribut \textbf{NB\_KW\_Jour}, présent dans les tables \textbf{Population\_Paris} et \textbf{Population\_Evry}. \item L'objectif est de contrôler l'ordre de grandeur des valeurs de consommation (kW/jour). \end{itemize} \end{document}
