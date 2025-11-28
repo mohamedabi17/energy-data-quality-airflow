@@ -256,18 +256,18 @@ To modify validation rules:
 This project includes comprehensive documentation:
 
 ### Core Documentation
-- **[QUICK_START.md](QUICK_START.md)** - Quick start guide for new users (⭐ START HERE)
+- **[QUICK_START.md](QUICK_START.md)** - Quick start guide for new users (START HERE)
 - **[PIPELINE_README.md](PIPELINE_README.md)** - Complete pipeline execution guide
 - **[DATA_QUALITY_METRICS.md](DATA_QUALITY_METRICS.md)** - Detailed metrics documentation
 
 ### Data Cleaning Documentation
-- **[DATA_CLEANING_STRATEGY.md](DATA_CLEANING_STRATEGY.md)** 🆕 - Complete explanation of our data cleaning philosophy, decisions, and quality trade-offs
+- **[DATA_CLEANING_STRATEGY.md](DATA_CLEANING_STRATEGY.md)**  - Complete explanation of our data cleaning philosophy, decisions, and quality trade-offs
   - Case studies (Population Évry, Consumption Évry, Address validation)
   - Specific transformations (postal codes, consumption units, CSP standardization)
   - Quality metrics explained (completeness, invalid rates, quality distribution)
   - Trade-offs & decisions (imputation strategy, deletion criteria)
 
-- **[CLEAN_DATA_README.md](CLEAN_DATA_README.md)** 🆕 - Technical documentation for `clean_data.py` script
+- **[CLEAN_DATA_README.md](CLEAN_DATA_README.md)** - Technical documentation for `clean_data.py` script
   - All functions reference (11 cleaning functions)
   - Cleaning rules and validation logic
   - Input/output structure
