@@ -160,7 +160,7 @@ python dags\scripts\compute_metrics.py
 
 This will generate the metadata file at: `metadata\metadata_qd.csv`
 
-## 📊 Interactive Dashboard (NEW!)
+##  Interactive Dashboard (NEW!)
 
 ### Launch Live Dashboard with One Click
 
@@ -174,7 +174,7 @@ Then open your browser to: **http://localhost:5050**
 
 ### Dashboard Features
 
-✨ **6 Interactive Visualizations**:
+ **6 Interactive Visualizations**:
 1. Before & After Data Cleaning Comparison (Bar Chart)
 2. Data Completeness Gauges (5 Tables)
 3. Record Quality Distribution (Stacked Bars)
@@ -182,23 +182,23 @@ Then open your browser to: **http://localhost:5050**
 5. Multi-dimensional Quality Spider Chart
 6. Table Health Matrix (Heatmap)
 
-🎛️ **Live Pipeline Control**:
+ **Live Pipeline Control**:
 - Launch complete pipeline with one button click
 - Real-time execution logs
 - Step-by-step progress tracking (4 stages)
 - Automatic dashboard refresh after completion
 
-📊 **40-Metric Comparison Table**:
+ **40-Metric Comparison Table**:
 - Side-by-side Raw vs Cleaned data metrics
 - Color-coded improvements/regressions
 - 7 categories: Completeness, Validity, Unit Consistency, Quality Distribution, Row Counts
 
-📁 **Metadata History Comparison**:
+ **Metadata History Comparison**:
 - View latest cleaned vs latest raw metadata files
 - Full CSV data displayed in responsive tables
 - Color-coded badges (Green=Cleaned, Blue=Raw)
 
-🎯 **Target Schemas Quality Metrics**:
+ **Target Schemas Quality Metrics**:
 - Completeness analysis for all 3 target schemas
 - Missing values and duplicate detection
 - Color-coded health indicators (Green/Orange/Red)
@@ -251,7 +251,7 @@ To adjust the DAG schedule:
 To modify validation rules:
 - Edit functions in `dags/scripts/compute_metrics.py`
 
-## 📚 Documentation
+##  Documentation
 
 This project includes comprehensive documentation:
 
@@ -292,14 +292,14 @@ This project includes comprehensive documentation:
 ### Why Read the Cleaning Documentation?
 
 If you want to understand:
-- ✅ **Why** certain data quality metrics changed (e.g., "good quality" records decreased)
-- ✅ **How** we handle missing values (imputation vs. preservation)
-- ✅ **What** transformations are applied (postal codes, addresses, CSP codes)
-- ✅ **When** we delete vs. fix vs. keep data (our decision criteria)
+-  **Why** certain data quality metrics changed (e.g., "good quality" records decreased)
+-  **How** we handle missing values (imputation vs. preservation)
+-  **What** transformations are applied (postal codes, addresses, CSP codes)
+-  **When** we delete vs. fix vs. keep data (our decision criteria)
 
-👉 **Read [DATA_CLEANING_STRATEGY.md](DATA_CLEANING_STRATEGY.md)** for the complete story with case studies
+ **Read [DATA_CLEANING_STRATEGY.md](DATA_CLEANING_STRATEGY.md)** for the complete story with case studies
 
-👉 **Read [CLEAN_DATA_README.md](CLEAN_DATA_README.md)** for technical implementation details
+ **Read [CLEAN_DATA_README.md](CLEAN_DATA_README.md)** for technical implementation details
 
 ## Notes
 
